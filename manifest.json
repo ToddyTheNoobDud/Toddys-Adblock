@@ -1,0 +1,31 @@
+{
+  "manifest_version": 2,
+  "name": "Toddys Adblock",
+  "version": "1.0",
+  "description": "An adblock make in javascript, by mushroom0162 (toddyn)",
+  "permissions": [
+      "storage",
+      "webRequest",
+      "webRequestBlocking",
+      "tabs",
+      "activeTab",
+      "<all_urls>"
+  ],
+  "background": {
+      "service_worker": "background.js"
+  },
+"content_scripts": [
+  {
+    "matches": ["<all_urls>"],
+    "js": ["content.js"]
+  }
+],
+  "icons": {
+      "48": "icon.png"
+  },
+  "browser_action": {
+    "default_icon": "icon.png",
+    "default_title": "Click to toggle adblock"
+}
+}
+
