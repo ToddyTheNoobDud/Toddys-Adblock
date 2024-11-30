@@ -71,9 +71,8 @@ const adBlockerRules = [
 
 // Auto-collect garbage every 5 minutes
 setInterval(() => {
-    if (global.gc) global.gc(); // Only call gc if turned on
+    if (typeof gc === 'function') gc(); // Only call gc if turned on
 }, 5 * 60 * 1000); // Set to 5 minutes
-
 // Register the web request listener to block ads
 chrome.webRequest.onBeforeRequest.addListener(
     (details) => {
