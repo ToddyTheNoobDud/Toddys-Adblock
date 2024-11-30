@@ -84,40 +84,39 @@ const uiStyle = `
     // Create a style tag to hide ads directly using CSS
     const adBlockStyle = document.createElement('style');
     document.head.appendChild(adBlockStyle);
-
     selectors.forEach(selector => {
         adBlockStyle.appendChild(document.createTextNode(`${selector} { display: none !important; }\n`));
     });
 
     // Function to remove ads efficiently
     const removeAds = (nodes) => {
-        const adsToRemove = [];
         nodes.forEach(node => {
             if (node instanceof HTMLElement) {
-                for (const selector of selectors) {
-                    if (node.matches(selector)) {
-                        adsToRemove.push(node);
-                        break;
+                if (node.matches('.ytp-ad-module')) {
+                    node.style.display = 'none';
+                    node.classList.add('ytp-ad-module-hidden');
+                } else if (node.matches('.ytp-ad-overlay')) {
+                    node.style.display = 'none';
+                    node.classList.add('ytp-ad-overlay-hidden');
+                } else {
+                    for (const selector of selectors) {
+                        if (node.matches(selector)) {
+                            node.remove(); // Remove the ad immediately
+                            break;
+                        }
                     }
                 }
             }
         });
-        if (adsToRemove.length > 0) {
-            adsToRemove.forEach(node => node.remove()); // batch removal
-        }
     };
 
     // Set up MutationObserver
     const observer = new MutationObserver(mutations => {
-        const addedNodes = [];
         mutations.forEach(mutation => {
             if (mutation.type === 'childList' && mutation.addedNodes.length) {
-                addedNodes.push(...Array.from(mutation.addedNodes));
+                removeAds(Array.from(mutation.addedNodes)); // Check and remove any new nodes
             }
         });
-        if (addedNodes.length) {
-            removeAds(addedNodes);
-        }
     });
 
     // Start observing the body
@@ -126,7 +125,7 @@ const uiStyle = `
     // Initial cleanup of existing ads
     removeAds(Array.from(document.querySelectorAll(Array.from(selectors).join(', '))));
 
-    // Advanced filtering for XHR responses
+    // XHR filtering
     const filterXHRResponses = () => {
         const originalXhrOpen = XMLHttpRequest.prototype.open;
         const originalXhrSend = XMLHttpRequest.prototype.send;
@@ -135,6 +134,7 @@ const uiStyle = `
             this._url = url; 
             return originalXhrOpen.apply(this, arguments);
         };
+
         XMLHttpRequest.prototype.send = function() {
             const xhr = this;
 
@@ -147,14 +147,9 @@ const uiStyle = `
 
                     if (urlPatterns.some(pattern => pattern.test(xhr._url))) {
                         const responseJSON = JSON.parse(xhr.responseText);
-
-                        // Consolidate ad-related properties removal
-                        const adProperties = [
-                            'adPlacements', 
-                            'playerAds', 
-                            'adSlots'
-                        ];
-
+                        
+                        // Remove ads from the response
+                        const adProperties = ['adPlacements', 'playerAds', 'adSlots'];
                         adProperties.forEach(prop => {
                             if (responseJSON.playbackContext) {
                                 delete responseJSON.playbackContext[prop];
@@ -179,7 +174,7 @@ const uiStyle = `
             return originalXhrSend.apply(this, arguments);
         };
     }
-    observer.disconnect(); 
+
     filterXHRResponses();
 
     const cleanup = () => {
