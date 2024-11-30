@@ -89,7 +89,7 @@ const uiStyle = `
         adBlockStyle.appendChild(document.createTextNode(`${selector} { display: none !important; }\n`));
     });
 
-    // Function to remove ads from the DOM efficiently
+    // Function to remove ads efficiently
     const removeAds = (nodes) => {
         const adsToRemove = [];
         nodes.forEach(node => {
@@ -103,11 +103,11 @@ const uiStyle = `
             }
         });
         if (adsToRemove.length > 0) {
-            adsToRemove.forEach(node => node.remove()); // batch remove to reduce reflow
+            adsToRemove.forEach(node => node.remove()); // batch removal
         }
     };
 
-    // Optimize the observer to focus only on specific nodes
+    // Set up MutationObserver
     const observer = new MutationObserver(mutations => {
         const addedNodes = [];
         mutations.forEach(mutation => {
@@ -116,17 +116,17 @@ const uiStyle = `
             }
         });
         if (addedNodes.length) {
-            removeAds(addedNodes); // batch removal of ads added
+            removeAds(addedNodes);
         }
     });
 
-    // Start observing only the body element
+    // Start observing the body
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Initial removal of existing ads
+    // Initial cleanup of existing ads
     removeAds(Array.from(document.querySelectorAll(Array.from(selectors).join(', '))));
 
-    // Revised version of the XHR filter to minimize overhead
+    // Advanced filtering for XHR responses
     const filterXHRResponses = () => {
         const originalXhrOpen = XMLHttpRequest.prototype.open;
         const originalXhrSend = XMLHttpRequest.prototype.send;
@@ -135,41 +135,58 @@ const uiStyle = `
             this._url = url; 
             return originalXhrOpen.apply(this, arguments);
         };
-
         XMLHttpRequest.prototype.send = function() {
             const xhr = this;
+
             xhr.addEventListener('load', function() {
-                // Only process relevant requests
-                if (/youtube\.com\/(get_video_info|youtubei\/v1\/player)\?/.test(xhr._url)) {
-                    try {
+                try {
+                    const urlPatterns = [
+                        /youtube\.com\/(get_video_info|youtubei\/v1\/player)\?/,
+                        /\/(playlist\?list=|\/player(?:\?.+)?|watch\?[tv]=)/
+                    ];
+
+                    if (urlPatterns.some(pattern => pattern.test(xhr._url))) {
                         const responseJSON = JSON.parse(xhr.responseText);
-                        // Clean up ads from responses
-                        if (responseJSON.playbackContext) {
-                            delete responseJSON.playbackContext.adPlacements;
-                        }
+
+                        // Consolidate ad-related properties removal
+                        const adProperties = [
+                            'adPlacements', 
+                            'playerAds', 
+                            'adSlots'
+                        ];
+
+                        adProperties.forEach(prop => {
+                            if (responseJSON.playbackContext) {
+                                delete responseJSON.playbackContext[prop];
+                            }
+                            if (responseJSON.playerResponse) {
+                                delete responseJSON.playerResponse[prop];
+                            }
+                        });
+
+                        // Filter adaptive formats for streaming data
                         if (responseJSON.streamingData) {
                             responseJSON.streamingData.adaptiveFormats = responseJSON.streamingData.adaptiveFormats.filter(format => !/^(?:audio|video)\//.test(format.mimeType));
                         }
+
                         xhr.responseText = JSON.stringify(responseJSON);
-                    } catch (e) {
-                        console.error("Error processing response:", e);
                     }
+                } catch (e) {
+                    console.error("Error processing response:", e);
                 }
             });
+
             return originalXhrSend.apply(this, arguments);
         };
-    };
-
-    // Initialize the XHR filtering
+    }
+    observer.disconnect(); 
     filterXHRResponses();
 
-    // Clean up on script removal (if needed)
     const cleanup = () => {
-        observer.disconnect(); // Stop observing
-        adBlockStyle.remove(); // Remove the ad blocking CSS
-        uiDiv.remove(); // Clean up the UI
+        observer.disconnect(); 
+        adBlockStyle.remove(); 
+        uiDiv.remove(); 
     };
 
-    // Optionally, handle script cleanup when no longer needed
     window.addEventListener('unload', cleanup);
 })();
